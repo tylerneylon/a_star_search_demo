@@ -9,12 +9,15 @@ local maze_str
 local maze = {}
 local x_len, y_len
 
+local tile_size = 35
+
 
 -- Internal functions.
 
 function pr(...)
   print(string.format(...))
 end
+
 
 -- Love callbacks.
 
@@ -55,9 +58,33 @@ end
 function love.update(dt)
 end
 
+function draw_tile(x, y)
+  love.graphics.rectangle('fill', x * tile_size, y * tile_size,
+                          tile_size - 1, tile_size - 1)
+end
+
+function draw_dot(x, y, r)
+  love.graphics.circle('fill',
+                       (x + 0.5) * tile_size, (y + 0.5) * tile_size, r, 20)
+end
+
 function love.draw()
   love.graphics.setColor(20, 180, 40)
-  love.graphics.rectangle('fill', 10, 10, 20, 20)
+
+  -- Draw the maze.
+  local bkg_color  = { 40,  40,  40}
+  local wall_color = {160, 180, 130}
+  local colors = {[0] = bkg_color, [1] = wall_color}
+  for y = 1, y_len do
+    for x = 1, x_len do
+      love.graphics.setColor(colors[maze[x][y]])
+      draw_tile(x, y)
+    end
+  end
+
+  -- Draw the goal.
+  love.graphics.setColor(0, 200, 0)
+  draw_dot(x_len, 1, 10)
 end
 
 function love.mousepressed(x, y, button)
