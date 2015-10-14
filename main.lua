@@ -9,6 +9,8 @@ local maze_str
 local maze = {}
 local x_len, y_len
 
+local entities = {}
+
 local tile_size = 35
 
 
@@ -16,6 +18,33 @@ local tile_size = 35
 
 function pr(...)
   print(string.format(...))
+end
+
+function draw_tile(x, y)
+  love.graphics.rectangle('fill', x * tile_size, y * tile_size,
+                          tile_size - 1, tile_size - 1)
+end
+
+function draw_dot(x, y, r)
+  love.graphics.circle('fill',
+                       (x + 0.5) * tile_size, (y + 0.5) * tile_size, r, 20)
+end
+
+
+-- Entity class.
+
+local Entity = {}
+
+Entity.__index = Entity
+
+function Entity:draw()
+  love.graphics.setColor(190, 0, 220)
+  draw_dot(self.x, self.y, 7)
+end
+
+function Entity.new(x, y)
+  local entity = {x = x, y = y}
+  return setmetatable(entity, Entity)
 end
 
 
@@ -58,16 +87,6 @@ end
 function love.update(dt)
 end
 
-function draw_tile(x, y)
-  love.graphics.rectangle('fill', x * tile_size, y * tile_size,
-                          tile_size - 1, tile_size - 1)
-end
-
-function draw_dot(x, y, r)
-  love.graphics.circle('fill',
-                       (x + 0.5) * tile_size, (y + 0.5) * tile_size, r, 20)
-end
-
 function love.draw()
   love.graphics.setColor(20, 180, 40)
 
@@ -85,9 +104,18 @@ function love.draw()
   -- Draw the goal.
   love.graphics.setColor(0, 200, 0)
   draw_dot(x_len, 1, 10)
+
+  -- Draw all the entities.
+  for _, entity in pairs(entities) do
+    entity:draw()
+  end
 end
 
 function love.mousepressed(x, y, button)
-  print('mouse click:', x, y, button)
-  print('window size: ', win_w, win_h)
+  x = math.floor(x / tile_size)
+  y = math.floor(y / tile_size)
+
+  if maze[x][y] == 0 then
+    table.insert(entities, Entity.new(x, y))
+  end
 end
