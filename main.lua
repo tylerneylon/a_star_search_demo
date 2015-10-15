@@ -74,8 +74,40 @@ end
 
 -- This returns a list of x, y pairs starting at the given arguments and
 -- ending at the goal point x_len, 1.
-function find_path(x, y)
-  return {x, y, x + 1, y}
+function find_path(start_x, start_y)
+  -- Our goal point is {x_len, 1}.
+
+  -- Set up the metadata.
+  -- pt_data[x][y] = { shortest_to_here, approx_shortest_via }
+  local pt_data = {}
+  for x = 1, x_len do pt_data[x] = {} end
+  for y = 1, y_len do
+    for x = 1, x_len do
+      pt_data[x][y] = { shortest_to_here    = math.huge,
+                        approx_shortest_via = math.huge }
+    end
+  end
+  pt_data[start_x][start_y] = { shortest_to_here = 0,
+                                approx_shortest_via = d(start_x, start_y) }
+
+  -- NEXT
+  -- * define d(x, y) to return the Euclidean distance from grid pt
+  --   x, y to the goal pt
+  -- * maintain a to_explore set of grid points
+  -- * loop over that set, and for the one with the smallest value of
+  --   approx_shortest_via:
+  --   + look at all nbors, and update their metadata (pt_data)
+  --     Specifically, if we just found a new shortest path to a nbor,
+  --     update both values in its pt_data[x][y] table.
+  -- * when that is complete, the metadata for the goal pt corresponds
+  --   to the short path
+  -- I FORGOT: We need metadata to track the path itself. This can be
+  --           built by, each time we find a new shortest path, save the
+  --           first step backwards into the nbor we just found a new path
+  --           to.
+
+
+  local to_explore = {{x, y}}
 end
 
 -- Entity class.
