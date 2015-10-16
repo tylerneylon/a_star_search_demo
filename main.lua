@@ -23,6 +23,9 @@ local G = {}
 -- Valid values are 'draw_path', 'maze_edit', or eventually 'short_path'.
 local mode = 'draw_path'
 
+local clock = 0
+local status_msg = {}
+
 
 -- Internal hook system; a way to inject function calls into the run loop.
 
@@ -79,6 +82,17 @@ function Button:mousemoved(x, y)
 end
 
 
+-- Button helper data and functions.
+
+local buttons = {}
+
+function highlight_button(button)
+  for _, b in pairs(buttons) do
+    b.is_highlighted = (b == button)
+  end
+end
+
+
 -- Grid drawing functions.
 
 local y_grid_offset = 40
@@ -107,10 +121,30 @@ end
 
 -- Internal functions.
 
+-- Save the current maze to saved_maze.data.
+-- The loaded maze is from maze.data, so you may need to move files around to
+-- load this maze the next time you run this program.
+function save_maze()
+  f = io.open('new_maze.data', 'w')
+  f:write('local maze = [[\n')
+  for y = 1, y_len do
+    for x = 1, x_len do
+      f:write(maze[x][y] == 1 and '*' or ' ')
+    end
+    f:write('\n')
+  end
+  f:write(']]\n\nreturn maze\n')
+  f:close()
+
+  status_msg.msg  = 'saved!'
+  status_msg.x    = 710
+  status_msg.y    =  20
+  status_msg.till = clock + 5
+end
+
 function pr(...)
   print(string.format(...))
 end
-
 
 -- Returns the Euclidean distance from (x, y) to the goal point.
 function d(x, y)
@@ -237,14 +271,6 @@ end
 
 -- Love callbacks.
 
-local buttons = {}
-
-function highlight_button(button)
-  for _, b in pairs(buttons) do
-    b.is_highlighted = (b == button)
-  end
-end
-
 function love.load()
   win_w, win_h = love.graphics.getDimensions()
   love.graphics.setLineWidth(5)
@@ -262,6 +288,9 @@ function love.load()
     mode = 'maze_edit'
     highlight_button(maze_edit_button)
   end
+
+  local save_maze_button = Button.new(500, 10, 'save maze')
+  save_maze_button.on_click = save_maze
 
   maze_str = loadfile('maze.data')()
 
@@ -298,10 +327,17 @@ function love.load()
 end
 
 function love.update(dt)
+  clock = clock + dt
 end
 
 function love.draw()
   love.graphics.setColor(20, 180, 40)
+
+  -- Draw a status msg if appropriate.
+  if status_msg.till and clock < status_msg.till then
+    love.graphics.setColor(255, 255, 255)
+    love.graphics.print(status_msg.msg, status_msg.x, status_msg.y)
+  end
 
   -- Draw the maze.
   local bkg_color  = { 40,  40,  40}
