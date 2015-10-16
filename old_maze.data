@@ -1,3 +1,5 @@
+-- maze.data
+
 local maze = [[
                     
  * *                
