@@ -329,8 +329,23 @@ function love.draw()
 end
 
 function love.mousepressed(x, y, button)
+  -- Call any hooked functions.
+  for _, mousepress_fn in pairs(mousepressed_fns) do
+    mousepress_fn(x, y, button)
+  end
+
   x = math.floor(x / tile_size)
   y = math.floor((y - y_grid_offset) / tile_size)
+
+  -- Bail if they clicked outside the grid.
+  if x < 1 or x > x_len or y < 1 or y > y_len then return end
+
+  if mode == 'maze_edit' then
+    maze[x][y] = 1 - maze[x][y]
+    G = {}
+    build_G()
+    return
+  end
 
   if maze[x][y] == 0 then
     if do_allow_many_start_pts then
@@ -338,10 +353,6 @@ function love.mousepressed(x, y, button)
     else
       entities = {Entity.new(x, y)}
     end
-  end
-
-  for _, mousepress_fn in pairs(mousepressed_fns) do
-    mousepress_fn(x, y, button)
   end
 end
 
