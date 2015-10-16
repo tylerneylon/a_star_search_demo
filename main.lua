@@ -1,5 +1,9 @@
 -- main.lua
 
+-- Parameters.
+
+local do_allow_many_start_pts = false
+
 
 -- Internal globals.
 
@@ -236,6 +240,10 @@ function love.mousepressed(x, y, button)
   y = math.floor(y / tile_size)
 
   if maze[x][y] == 0 then
-    table.insert(entities, Entity.new(x, y))
+    if do_allow_many_start_pts then
+      table.insert(entities, Entity.new(x, y))
+    else
+      entities = {Entity.new(x, y)}
+    end
   end
 end
