@@ -20,6 +20,9 @@ local tile_size = 35
 -- G[x][y] = {nbors of that grid pt}.
 local G = {}
 
+-- Valid values are 'draw_path', 'maze_edit', or eventually 'short_path'.
+local mode = 'draw_path'
+
 
 -- Internal hook system; a way to inject function calls into the run loop.
 
@@ -40,7 +43,7 @@ local Button = {}
 Button.__index = Button  -- So we can use Button as a metatable.
 
 function Button.new(x, y, text)
-  local button = {x = x, y = y, text = text, w = 100, h = 30}
+  local button = {x = x, y = y, text = text, w = 200, h = 30}
   setmetatable(button, Button)
 
   -- Add hooks to our run loop and input functions.
@@ -57,15 +60,48 @@ function Button:draw()
   love.graphics.rectangle('fill', self.x, self.y, self.w, self.h)
   love.graphics.setColor(255, 255, 255)
   love.graphics.print(self.text, self.x + 10, self.y + 10)
+
+  -- Draw a highlight outline if we're highlighted.
+  if self.is_highlighted then
+    love.graphics.setColor(255, 255, 255)
+    love.graphics.rectangle('line', self.x - 1, self.y - 1,
+                                    self.w + 1, self.h + 1)
+  end
 end
 
 function Button:mousepressed(x, y)
-  if self.on_click then self.on_click(x, y) end
+  if self.on_click and self.is_hovered then self:on_click(x, y) end
 end
 
 function Button:mousemoved(x, y)
   self.is_hovered = (x >= self.x and x < self.x + self.w and
                      y >= self.y and y < self.y + self.h)
+end
+
+
+-- Grid drawing functions.
+
+local y_grid_offset = 40
+
+function draw_tile(x, y)
+  y = y + y_grid_offset / tile_size
+  love.graphics.rectangle('fill', x * tile_size, y * tile_size,
+                          tile_size - 1, tile_size - 1)
+end
+
+function draw_dot(x, y, r)
+  y = y + y_grid_offset / tile_size
+  love.graphics.circle('fill',
+                       (x + 0.5) * tile_size, (y + 0.5) * tile_size, r, 20)
+end
+
+function draw_path(path)
+  local p = {}
+  for i, coord in ipairs(path) do
+    p[#p + 1] = (coord + 0.5) * tile_size
+    if i % 2 == 0 then p[#p] = p[#p] + y_grid_offset end
+  end
+  love.graphics.line(p)
 end
 
 
@@ -75,23 +111,6 @@ function pr(...)
   print(string.format(...))
 end
 
-function draw_tile(x, y)
-  love.graphics.rectangle('fill', x * tile_size, y * tile_size,
-                          tile_size - 1, tile_size - 1)
-end
-
-function draw_dot(x, y, r)
-  love.graphics.circle('fill',
-                       (x + 0.5) * tile_size, (y + 0.5) * tile_size, r, 20)
-end
-
-function draw_path(path)
-  local p = {}
-  for _, coord in ipairs(path) do
-    p[#p + 1] = (coord + 0.5) * tile_size
-  end
-  love.graphics.line(p)
-end
 
 -- Returns the Euclidean distance from (x, y) to the goal point.
 function d(x, y)
@@ -218,11 +237,31 @@ end
 
 -- Love callbacks.
 
+local buttons = {}
+
+function highlight_button(button)
+  for _, b in pairs(buttons) do
+    b.is_highlighted = (b == button)
+  end
+end
+
 function love.load()
   win_w, win_h = love.graphics.getDimensions()
   love.graphics.setLineWidth(5)
 
-  local b = Button.new(10, 10, 'hi there')
+  -- Set up the buttons.
+  local draw_path_button = Button.new( 10, 10, 'draw path mode')
+  local maze_edit_button = Button.new(240, 10, 'maze edit mode')
+  buttons = {draw_path_button, maze_edit_button}
+  highlight_button(draw_path_button)
+  draw_path_button.on_click = function ()
+    mode = 'draw_path'
+    highlight_button(draw_path_button)
+  end
+  maze_edit_button.on_click = function ()
+    mode = 'maze_edit'
+    highlight_button(maze_edit_button)
+  end
 
   maze_str = loadfile('maze.data')()
 
@@ -291,7 +330,7 @@ end
 
 function love.mousepressed(x, y, button)
   x = math.floor(x / tile_size)
-  y = math.floor(y / tile_size)
+  y = math.floor((y - y_grid_offset) / tile_size)
 
   if maze[x][y] == 0 then
     if do_allow_many_start_pts then
