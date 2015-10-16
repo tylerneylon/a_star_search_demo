@@ -2,7 +2,7 @@
 
 This is a small interactive demo of the A* search algorithm.
 
-![](https://github.com/tylerneylon/a_star_search_demo/blob/master/a_star_screenshot.png)
+![](https://github.com/tylerneylon/a_star_search_demo/blob/master/screenshot.png)
 
 You can edit the human-friendly text file `maze.data` to create a custom maze,
 which will be visualized as in the screenshot above. In the file, space
