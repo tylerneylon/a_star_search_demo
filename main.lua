@@ -168,6 +168,7 @@ end
 
 function love.load()
   win_w, win_h = love.graphics.getDimensions()
+  love.graphics.setLineWidth(5)
 
   maze_str = loadfile('maze.data')()
 
@@ -220,14 +221,14 @@ function love.draw()
     end
   end
 
-  -- Draw the goal.
-  love.graphics.setColor(0, 200, 0)
-  draw_dot(x_len, 1, 10)
-
   -- Draw all the entities.
   for _, entity in pairs(entities) do
     entity:draw()
   end
+
+  -- Draw the goal.
+  love.graphics.setColor(0, 200, 0)
+  draw_dot(x_len, 1, 10)
 end
 
 function love.mousepressed(x, y, button)
