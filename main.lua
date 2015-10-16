@@ -463,14 +463,16 @@ function love.load()
   love.graphics.setLineWidth(5)
 
   -- Set up the buttons.
-  local  draw_path_button = Button.new( 10, 10, 'draw path mode')
-  local short_path_button = Button.new(150, 10, 'short path mode')
-  local  maze_edit_button = Button.new(290, 10, 'maze edit mode')
+  local  draw_path_button = Button.new( 10, 10, 'A* path mode')
+  draw_path_button.w = 110
+  local short_path_button = Button.new(130, 10, 'shortcut path mode')
+  short_path_button.w = 160
+  local  maze_edit_button = Button.new(300, 10, 'maze edit mode')
+  maze_edit_button.w = 130
   buttons = {draw_path_button, short_path_button, maze_edit_button}
   highlight_button(draw_path_button)
   local mode_names = {'draw_path', 'short_path', 'maze_edit'}
   for i, b in pairs(buttons) do
-    b.w = 130
     b.on_click = function ()
       mode = mode_names[i]
       highlight_button(b)
@@ -482,7 +484,8 @@ function love.load()
   save_maze_button.w = 120
   save_maze_button.on_click = save_maze
 
-  maze_str = loadfile('maze.data')()
+  maze_str = love.filesystem.load('maze.data')()
+  --maze_str = loadfile('maze.data')()
 
   -- Convert maze_str into a table of tables so that maze[x][y] is 0 or 1.
   -- 1 = a wall, 0 = no wall.
