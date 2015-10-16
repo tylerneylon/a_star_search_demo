@@ -119,6 +119,84 @@ function draw_path(path)
 end
 
 
+-- Ray-marching functions.
+
+-- This is an iterator.
+-- It returns a function that returns the next element with each call,
+-- finally returning nil when all elements have been returned.
+-- Each element is an array of elements of the set.
+-- This code is essentially algorithm L from section 7.2.1.3 of
+-- Knuth's The Art of Computer Programming.
+local function all_nonzero_subsets_in_order(set)  -- Input is a key set.
+  local set_arr = {}
+  for key in pairs(set) do set_arr[#set_arr + 1] = key end
+
+  local n = #set_arr
+  local t = 1  -- The set of the next subset to return.
+
+  -- c[i] is the index of the ith item to return.
+  -- We only return set_arr[c[1], ... , c[t]].
+  local c = {1, n + 1, 0}
+
+  return function ()
+    -- Return nil if we're done.
+    if t > n then return nil end
+
+    -- Build the return set based on c.
+    local ret = {}
+    for i = 1, t do ret[set_arr[c[i]]] = true end
+
+    -- Walk up j to see how we can increment c.
+    local j = 1
+    while c[j] + 1 == c[j + 1] do
+      c[j] = j
+      j = j + 1
+    end
+
+    -- Calculate the next c values.
+    if j > t then
+      -- We're done with the current t.
+      t = t + 1
+      for i = 1, t do c[i] = i end
+      c[t + 1], c[t + 2] = n + 1, 0
+    else
+      -- Not done with t; set up the next c values.
+      c[j] = c[j] + 1
+    end
+
+    return ret
+  end
+end
+
+-- Returns the next integer 'after' from in the given dir. dir is expected
+-- to be nonzero.
+local function next_hit(from, dir)
+  if dir > 0 then
+    return math.floor(from + 1)
+  else
+    return math.ceil (from - 1)
+  end
+end
+
+-- Returns the min of elements of t; t is expected to be an array of numbers.
+-- Returns nil if t is empty.
+local function min(t)
+  local m
+  for _, v in pairs(t) do
+    if m == nil or v < m then
+      m = v
+    end
+  end
+  return m
+end
+
+local function sign(x)
+  if x > 0 then return  1 end
+  if x < 0 then return -1 end
+  return 0
+end
+
+
 -- Internal functions.
 
 -- Save the current maze to saved_maze.data.
@@ -185,8 +263,8 @@ function build_G()
 end
 
 -- This returns a list of x, y pairs starting at the given arguments and
--- ending at the goal point x_len, 1.
-function find_path(start_x, start_y)
+-- ending at the goal point x_len, 1. This uses A* search.
+function find_path_via_A_star(start_x, start_y)
   -- Our goal point is {x_len, 1}.
 
   -- Set up the metadata.
@@ -248,6 +326,115 @@ function find_path(start_x, start_y)
   return path
 end
 
+function path_is_ok(x1, y1, x2, y2)
+
+  local grid = {x1, y1}
+  local p    = {x1 + 0.5, y1 + 0.5}
+  local dir  = {x2 - x1, y2 - y1}
+
+  local total_dist = 0  -- Measured in units of the dir vectors.
+  local t = {}  -- Tracks incremental movement along the ray.
+  local q = {}  -- Helps track potential next points.
+
+  while true do
+
+    -- Find the next_hit distance t for each coord i.
+    for i = 1, 2 do
+      t[i] = math.huge
+      if dir[i] ~= 0 then
+        --print('processing dir[' .. i .. ']')
+        q[i] = next_hit(p[i], dir[i])
+        t[i] = (q[i] - p[i]) / dir[i]
+      end
+    end
+
+    -- min_set = { i : t[i] = min(t) }, as a key set.
+    local min_set = {}
+    local t_min = min(t)
+
+    -- We're done if we've passed the destination point, which is distance 1
+    -- away from the start point in units of the dir vector.
+    total_dist = total_dist + t_min
+    if total_dist > 1 then return true end
+
+    for i = 1, 2 do
+      -- We allow for 0.001 tolerance of machien precision error.
+      if math.abs(t[i] - t_min) < 0.001 then min_set[i] = true end
+    end
+
+    -- Move p forward by distance t_min.
+    for i = 1, 2 do
+      p[i] = p[i] + t_min * dir[i]
+    end
+
+    -- Check for any collisions.
+    for s in all_nonzero_subsets_in_order(min_set) do
+      local h = {}
+      for i = 1, 2 do
+        -- s is a key set
+        h[i] = grid[i] + (s[i] and 1 or 0) * sign(dir[i])
+      end
+      -- Is there a wall between grid and h?
+      if maze[h[1]][h[2]] == 1 then return false end
+    end
+
+    -- Officially move the grid pt forward.
+    for i = 1, 2 do
+      grid[i] = grid[i] + (min_set[i] and 1 or 0) * sign(dir[i])
+    end
+  end
+
+  assert(false, 'should not get out of while loop here')
+end
+
+function print_path(path)
+  io.write('path: ')
+  for i, coord in ipairs(path) do
+    io.write(coord .. ' ')
+    if i % 2 == 0 then io.write('  ') end
+  end
+  print('')  -- Ending newline.
+end
+
+-- This returns a list of x, y pairs starting at the given arguments and
+-- ending at the goal point x_len, 1. This uses A* and then optimizes that path.
+function find_path_via_short_cut_star(start_x, start_y)
+  local path = find_path_via_A_star(start_x, start_y)
+
+  -- Turn this on in the future to help debugging, if needed.
+  if false then print_path(path) end
+
+  -- Suppose the path contains the 3-point subpath A, B, C. Then we can go
+  -- straight from A to C, skipping B, when the grid rectangle with corners at A
+  -- and C has all possible edges in the graph G.
+  local num_pts = #path / 2
+  for i = 1, num_pts do
+    while true do
+      -- Check to see if we can go straight from pt i to pt i + 2.
+      local j = i + 2
+      if 2 * j > #path then break end
+      if path_is_ok(path[2 * i - 1], path[2 * i],
+                    path[2 * j - 1], path[2 * j]) then
+        table.remove(path, 2 * (i + 1) - 1)
+        table.remove(path, 2 * (i + 1) - 1)
+      else
+        break
+      end
+    end
+  end
+  return path
+end
+
+-- This returns a list of x, y pairs starting at the given arguments and
+-- ending at the goal point x_len, 1.
+function find_path(start_x, start_y)
+  if mode == 'draw_path' then
+    return find_path_via_A_star(start_x, start_y)
+  else  -- Assume mode == 'short_path'.
+    return find_path_via_short_cut_star(start_x, start_y)
+  end
+end
+
 -- Entity class.
 
 local Entity = {}
@@ -276,20 +463,23 @@ function love.load()
   love.graphics.setLineWidth(5)
 
   -- Set up the buttons.
-  local draw_path_button = Button.new( 10, 10, 'draw path mode')
-  local maze_edit_button = Button.new(240, 10, 'maze edit mode')
-  buttons = {draw_path_button, maze_edit_button}
+  local  draw_path_button = Button.new( 10, 10, 'draw path mode')
+  local short_path_button = Button.new(150, 10, 'short path mode')
+  local  maze_edit_button = Button.new(290, 10, 'maze edit mode')
+  buttons = {draw_path_button, short_path_button, maze_edit_button}
   highlight_button(draw_path_button)
-  draw_path_button.on_click = function ()
-    mode = 'draw_path'
-    highlight_button(draw_path_button)
-  end
-  maze_edit_button.on_click = function ()
-    mode = 'maze_edit'
-    highlight_button(maze_edit_button)
+  local mode_names = {'draw_path', 'short_path', 'maze_edit'}
+  for i, b in pairs(buttons) do
+    b.w = 130
+    b.on_click = function ()
+      mode = mode_names[i]
+      highlight_button(b)
+    end
   end
 
-  local save_maze_button = Button.new(500, 10, 'save maze')
+  -- Add the save maze button.
+  local save_maze_button = Button.new(580, 10, 'save maze')
+  save_maze_button.w = 120
   save_maze_button.on_click = save_maze
 
   maze_str = loadfile('maze.data')()
