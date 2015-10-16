@@ -41,6 +41,13 @@ function draw_path(path)
   love.graphics.line(p)
 end
 
+-- Returns the Euclidean distance from (x, y) to the goal point.
+function d(x, y)
+  -- The goal point is (x_len, 1).
+  local dx, dy = x - x_len, y - 1
+  return math.sqrt(dx ^ 2 + dy ^ 2)
+end
+
 -- This builds the graph structure in G.
 -- G[x][y] = {nbors of grid point (x, y)}
 function build_G()
@@ -90,24 +97,59 @@ function find_path(start_x, start_y)
   pt_data[start_x][start_y] = { shortest_to_here = 0,
                                 approx_shortest_via = d(start_x, start_y) }
 
-  -- NEXT
-  -- * define d(x, y) to return the Euclidean distance from grid pt
-  --   x, y to the goal pt
-  -- * maintain a to_explore set of grid points
-  -- * loop over that set, and for the one with the smallest value of
-  --   approx_shortest_via:
-  --   + look at all nbors, and update their metadata (pt_data)
-  --     Specifically, if we just found a new shortest path to a nbor,
-  --     update both values in its pt_data[x][y] table.
-  -- * when that is complete, the metadata for the goal pt corresponds
-  --   to the short path
-  -- I FORGOT: We need metadata to track the path itself. This can be
-  --           built by, each time we find a new shortest path, save the
-  --           first step backwards into the nbor we just found a new path
-  --           to.
+  local to_explore = {{start_x, start_y}}
 
+  while #to_explore > 0 do
 
-  local to_explore = {{x, y}}
+    -- Find the to_explore member with minimum approx_shortest_via.
+    local shortest   = math.huge
+    local best_pt    = nil
+    local best_index = nil
+    for index, pt in pairs(to_explore) do
+
+      -- pr('type(index) = %s', type(index))
+      -- pr('type(pt) = %s', type(pt))
+
+      -- for k, v in pairs(pt) do print(k, v) end
+
+      -- pr('pt = {%d, %d}', pt[1], pt[2])
+      -- pr('about to look up pt_data[%d][%d]', pt[1], pt[2])
+      local data = pt_data[pt[1]][pt[2]]
+      if data.approx_shortest_via < shortest then
+        shortest   = data.approx_shortest_via
+        best_pt    = pt
+        best_index = index
+      end
+    end
+    table.remove(to_explore, best_index)
+
+    -- Explore all nbors of best_pt.
+    local best_pt_data = pt_data[best_pt[1]][best_pt[2]]
+    for _, nbor in pairs(G[best_pt[1]][best_pt[2]]) do
+      local nbor_data = pt_data[nbor[1]][nbor[2]]
+      if best_pt_data.shortest_to_here + 1 < nbor_data.shortest_to_here then
+        nbor_data.shortest_to_here = best_pt_data.shortest_to_here + 1
+        nbor_data.approx_shortest_via =
+            nbor_data.shortest_to_here + d(nbor[1], nbor[2])
+        nbor_data.prev_pt_on_path = best_pt
+        table.insert(to_explore, nbor)
+      end
+    end
+
+  end
+
+  -- Build the path itself.
+  -- The format will be path = {x1, y1, x2, y2, ..., goalx, goaly}.
+  local path = {}
+  local pt = {x_len, 1}
+  while pt ~= nil do
+    table.insert(path, 1, pt[2])
+    table.insert(path, 1, pt[1])
+    local data = pt_data[pt[1]][pt[2]]
+    pt = data.prev_pt_on_path
+  end
+
+  return path
 end
 
 -- Entity class.
