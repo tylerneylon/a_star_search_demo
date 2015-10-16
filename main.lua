@@ -21,6 +21,54 @@ local tile_size = 35
 local G = {}
 
 
+-- Internal hook system; a way to inject function calls into the run loop.
+
+local draw_fns = {}
+local mousepressed_fns = {}
+local mousemoved_fns = {}
+
+
+-- The Button class.
+--
+-- Usage:
+--   -- This takes screen coords of the button's upper-left corner.
+--   local button = Button.new(x, y, text)
+--   button.on_click = <my function>
+--
+
+local Button = {}
+Button.__index = Button  -- So we can use Button as a metatable.
+
+function Button.new(x, y, text)
+  local button = {x = x, y = y, text = text, w = 100, h = 30}
+  setmetatable(button, Button)
+
+  -- Add hooks to our run loop and input functions.
+  table.insert(draw_fns, function () button:draw() end)
+  table.insert(mousepressed_fns, function (x, y) button:mousepressed(x, y) end)
+  table.insert(mousemoved_fns, function (x, y) button:mousemoved(x, y) end)
+
+  return button
+end
+
+function Button:draw()
+  local bkg_color = (self.is_hovered and {80, 80, 140} or {40, 40, 90})
+  love.graphics.setColor(bkg_color)
+  love.graphics.rectangle('fill', self.x, self.y, self.w, self.h)
+  love.graphics.setColor(255, 255, 255)
+  love.graphics.print(self.text, self.x + 10, self.y + 10)
+end
+
+function Button:mousepressed(x, y)
+  if self.on_click then self.on_click(x, y) end
+end
+
+function Button:mousemoved(x, y)
+  self.is_hovered = (x >= self.x and x < self.x + self.w and
+                     y >= self.y and y < self.y + self.h)
+end
+
+
 -- Internal functions.
 
 function pr(...)
@@ -174,6 +222,8 @@ function love.load()
   win_w, win_h = love.graphics.getDimensions()
   love.graphics.setLineWidth(5)
 
+  local b = Button.new(10, 10, 'hi there')
+
   maze_str = loadfile('maze.data')()
 
   -- Convert maze_str into a table of tables so that maze[x][y] is 0 or 1.
@@ -233,6 +283,10 @@ function love.draw()
   -- Draw the goal.
   love.graphics.setColor(0, 200, 0)
   draw_dot(x_len, 1, 10)
+
+  for _, draw_fn in pairs(draw_fns) do
+    draw_fn()
+  end
 end
 
 function love.mousepressed(x, y, button)
@@ -245,5 +299,15 @@ function love.mousepressed(x, y, button)
     else
       entities = {Entity.new(x, y)}
     end
+  end
+
+  for _, mousepress_fn in pairs(mousepressed_fns) do
+    mousepress_fn(x, y, button)
+  end
+end
+
+function love.mousemoved(x, y)
+  for _, mousemove_fn in pairs(mousemoved_fns) do
+    mousemove_fn(x, y)
   end
 end
