@@ -106,14 +106,6 @@ function find_path(start_x, start_y)
     local best_pt    = nil
     local best_index = nil
     for index, pt in pairs(to_explore) do
-
-      -- pr('type(index) = %s', type(index))
-      -- pr('type(pt) = %s', type(pt))
-
-      -- for k, v in pairs(pt) do print(k, v) end
-
-      -- pr('pt = {%d, %d}', pt[1], pt[2])
-      -- pr('about to look up pt_data[%d][%d]', pt[1], pt[2])
       local data = pt_data[pt[1]][pt[2]]
       if data.approx_shortest_via < shortest then
         shortest   = data.approx_shortest_via
@@ -135,7 +127,6 @@ function find_path(start_x, start_y)
         table.insert(to_explore, nbor)
       end
     end
-
   end
 
   -- Build the path itself.
